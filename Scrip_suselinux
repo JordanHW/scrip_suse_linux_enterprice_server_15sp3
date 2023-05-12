@@ -1,0 +1,1499 @@
+#!/bin/bash
+# Scrips de Suse Linux Enterprice 15 sp3 para sistemas con arquitectura de 64 bits 
+
+echo "inicio del scrip"
+# 1.1.1.1 Ensure mounting of squashfs filesystems is disabled (Automated) 
+
+modprobe -n -v squashfs | grep -E '(squashfs|install)' 
+
+#1.1.1.2 Ensure mounting of udf filesystems is disabled (Automated) 
+
+modprobe -n -v udf | grep -E '(udf|install)'
+
+
+# 1.1.1.3 Ensure mounting of FAT filesystems is limited (Automated) 
+grep -E -i '\svfat\s' /etc/fstab
+
+modprobe -n -v fat | grep -E '(fat|install)'
+lsmod | grep fat
+
+modprobe -n -v vfat | grep -E '(vfat|install)'
+lsmod | grep vfat
+ 
+modprobe -n -v msdos | grep -E '(msdos|install)'
+lsmod | grep msdos
+
+# 1.1.2 Ensure /tmp is configured (Automated) 
+mount | grep -E '\s/tmp\s' 
+grep -E '\s/tmp\s' /etc/fstab | grep -E -v '^\s*#' 
+systemctl is-enabled tmp.mount 
+systemctl daemon-reload 
+systemctl unmask tmp.mount
+systemctl enable --now tmp.mount
+
+# 1.1.3 Ensure noexec option set on /tmp partition (Automated) 
+
+mount -o remount,noexec /tmp 
+systemctl daemon-reload 
+# 1.1.4 Ensure nodev option set on /tmp partition (Automated)
+ mount | grep -E '\s/tmp\s' | grep -v nodev (preguntar al profe) <=== pendiente 
+
+# 1.1.5 Ensure nosuid option set on /tmp partition /(Automated)
+
+ mount | grep -E '\s/tmp\s' | grep -v nosuid 
+ mount -o remount,nosuid /tmp 
+ systemctl daemon-reload 
+ systemctl restart tmp.mount 
+
+# 1.1.6 Ensure /dev/shm is configured (Automated
+
+mount | grep -E '\s/dev/shm\s' 
+grep -E '\s/dev/shm\s' /etc/fstab
+mount -o remount,noexec,nodev,nosuid /dev/shm
+
+# 1.1.8 Ensure nodev option set on /dev/shm partition (Automated)
+
+mount | grep -E '\s/dev/shm\s' | grep -v nodev
+
+# 1.1.9 Ensure nosuid option set on /dev/shm partition (Automated) 
+
+mount | grep -E '\s/dev/shm\s' | grep -v nosuid 
+
+# 1.1.10 Ensure separate partition exists for /var (Automated) <== particion traducir 
+mount | grep -E '\s/var\s' 
+
+# 1.1.11 Ensure separate partition exists for /var/tmp (Automated)
+
+mount | grep /var/tmp 
+
+# 1.1.12 Ensure noexec option set on /var/tmp partition (Automated)
+
+mount | grep -E '\s/var/tmp\s' | grep -v noexec 
+
+# 1.1.13 Ensure nodev option set on /var/tmp partition (Automated)
+
+mount | grep -E '\s/var/tmp\s' | grep -v nodev 
+
+# 1.1.14 Ensure nosuid option set on /var/tmp partition (Automated)
+
+mount | grep -E '\s/var/tmp\s' | grep -v nosuid 
+
+# 1.1.15 Ensure separate partition exists for /var/log (Automated)
+
+mount | grep -E '\s/var/log\s' 
+
+# 1.1.16 Ensure separate partition exists for /var/log/audit (Automated)
+
+mount | grep /var/log/audit 
+
+# 1.1.17 Ensure separate partition exists for /home (Automated) 
+
+mount | grep /home 
+
+# 1.1.18 Ensure nodev option set on /home partition (Automated) 
+
+mount | grep -E '\s/home\s' | grep -v nodev
+mount -o remount,nodev /home  
+
+# 1.1.19 Ensure noexec option set on removable media partitions (Manual) 
+# 1.1.20 Ensure nodev option set on removable media partitions (Manual)
+# 1.1.21 Ensure nosuid option set on removable media partitions  <=== investigar pendiente 
+# 1.1.22 Ensure sticky bit is set on all world-writable directories(Automated)
+
+df --local -P 2> /dev/null | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type d \( -perm-0002-a ! -perm-1000 \) 2>/dev/null
+
+# 1.1.23 Disable Automounting (Automated) <==verificar si esta desactivado
+
+systemctl is-enabled autofs
+systemctl --now mask autofs <=== desacativa la funcion 
+
+# 1.2 Configure Software Updates
+# 1.2.1 Ensure GPG keys are configured (Manual) <==investigar 
+# (comando en las notas de suse )
+
+# 1.2.2 Ensure package manager repositories are configured (Manual)
+zypper repos <== no tengo el producto activo las actualizaciones estan desactivadas 
+
+#1.2.3 Ensure gpgcheck is globally activated (Automated)
+
+grep ^\s*gpgcheck /etc/zypp/zypp.conf 
+
+awk -v 'RS=[' -F '\n' '/\n\s*enabled\s*=\s*1(\W.*)?$/ && ! /\n\s*gpgcheck\s*=\s*1(\W.*)?$/ { t=substr($1, 1,index($1, "]")-1); print t, "does not have gpgcheck enabled." }' /etc/zypp/repos.d/*.repo 
+
+# 1.3 Configure sudo
+#1.3.1 Ensure sudo is installed (Automated)
+
+rpm -q sudo  (versi esta instalado sudo)
+
+zypper install sudo (instalar sudo)
+
+# 1.3.2 Ensure sudo commands use pty (Automated) 
+
+grep -Ei '^\s*Defaults\s+([^#]\S+,\s*)?use_pty\b' /etc/sudoers/etc/sudoers.d/* 
+
+# 1.3.3 Ensure sudo log file exists (Automated)
+
+grep -Ei '^\s*Defaults\s+([^#;]+,\s*)?logfile\s*=\s*(")?[^#;]+(")?' /etc/sudoers /etc/sudoers.d/*
+ 
+# 1.4 Filesystem Integrity Checking
+# 1.4.1 Ensure AIDE is installed (Automated)  <== instalacion y configuracion incompleta
+
+zypper install aide 
+aide --init
+mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+
+# 1.4.2 Ensure filesystem integrity is regularly checked (Automated)<== imcompleta 
+
+crontab -u root -l | grep aide 
+grep -r aide /etc/cron.* /etc/crontab
+
+systemctl is-enabled aidecheck.service 
+ 
+systemctl is-enabled aidecheck.timer 
+systemctl status aidecheck.timer 
+
+# 1.5 Secure Boot Settings 
+# 1.5.1 Ensure bootloader password is set (Automated) <===== (incrptacion de contrasena de super usuario )
+
+# 1.6 Additional Process Hardening
+# 1.6.1 Ensure core dumps are restricted (Automated)
+
+sysctl fs.suid_dumpable 
+grep -E "^\s*\*\s+hard\s+core" /etc/security/limits.conf /etc/security/limits.d/* 
+systemctl is-enabled coredump.service
+
+# 1.6.2 Ensure XD/NX support is enabled (Automated)
+
+journalctl | grep 'protection: active'
+
+# 1.6.3 Ensure address space layout randomization (ASLR) is enabled (Automated) 
+
+sysctl kernel.randomize_va_space 
+grep "kernel\.randomize_va_space" /etc/sysctl.conf /etc/sysctl.d/* 
+
+kernel.randomize_va_space = 2   <== correcion 
+sysctl -w kernel.randomize_va_space=2 
+
+# 1.6.4 Ensure prelink is disabled (Automated)<=== desinstalar prelink
+zypper remove prelink
+
+# 1.7 Mandatory Access Control
+# 1.7.1 Configure AppArmor
+# 1.7.1.1 Ensure AppArmor is installed (Automated)
+
+zypper install -t pattern apparmor <=== (ya esta instalado por default desde la vercion 15 sp1) 
+
+rpm -p apparmor-docs apparmor-parser apparmor-profiles apparmor-utils libarpparmor1 (verificacion si esta instalado)
+
+#1.7.1.2 Ensure AppArmor is enabled in the bootloader configuration (Automated)
+
+grep "^\s*linux" /boot/grub2/grub.cfg | grep -v "apparmor=1" 
+
+grep "^\s*linux" /boot/grub2/grub.cfg | grep -v "security=apparmor" 
+
+# 1.7.1.3 Ensure all AppArmor Profiles are in enforce or complain mode (Automated)
+# 1.7.1.4 Ensure all AppArmor Profiles are enforcing (Automated)
+
+apparmor_status | grep profiles
+apparmor_status | grep processes
+
+aa-enforce /etc/apparmor.d/*
+aa-complain /etc/apparmor.d/*
+aa-unconfined 
+
+# 1.8 Warning Banners
+# 1.8.1 Command Line Warning Banners
+# 1.8.1.1 Ensure message of the day is configured properly (Automated) 
+cat /etc/motd 
+grep -E -i "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f | sed -e 's/"//g'))" /etc/motd 
+
+#1.8.1.2 Ensure local login warning banner is configured properly (Automated)
+ 
+cat /etc/issue 
+grep -E -i "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f2 | sed -e 's/"//g'))" /etc/issue 
+
+echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue
+
+#1.8.1.3 Ensure remote login warning banner is configured properly (Automated) 
+
+cat /etc/issue.net 
+
+grep -E -i "(\\\v|\\\r|\\\m|\\\s|$(grep '^ID=' /etc/os-release | cut -d= -f2 | sed -e 's/"//g'))" /etc/issue.net
+
+echo "Authorized uses only. All activity may be monitored and reported." > /etc/issue.net 
+
+# 1.8.1.4 Ensure permissions on /etc/motd are configured (Automated) 
+
+stat /etc/motd
+
+chown root:root /etc/motd 
+chmod u-x,go-wx /etc/motd 
+
+# 1.8.1.5 Ensure permissions on /etc/issue are configured (Automated)
+
+stat /etc/issue 
+
+# 1.8.1.6 Ensure permissions on /etc/issue.net are configured (Automated) 
+
+stat /etc/issue.net 
+
+# 1.9 Ensure updates, patches, and additional security software are installed (Manual)
+
+zypper list-updates
+
+zypper update
+
+# 1.10 Ensure GDM is removed or login is configured (Automated) <== Eliminar 
+rpm -q gdm
+zypper remove gdm 
+
+# 2 Services
+# 2.1 inetd Services
+# 2.1.1 Ensure xinetd is not installed (Automated) 
+# rpm -q xinetd
+
+# 2.2 Special Purpose Services
+# 2.2.1 Time Synchronization
+# 2.2.1.1 Ensure time synchronization is in use (Automated)
+
+rpm -q chrony 
+systemctl is-enabled systemd-timesyncd
+systemctl enable systemd-timesyncd
+
+# 2.2.1.2 Ensure systemd-timesyncd is configured (Manual)
+
+systemctl is-enabled systemd-timesyncd.service
+timedatectl status 
+
+systemctl --now enable systemd-timesyncd.service  
+timedatectl set-ntp true  
+
+#2.2.1.3 Ensure chrony is configured (Automated) 
+
+grep -E "^(server|pool)" /etc/chrony.conf 
+grep ^OPTIONS /etc/sysconfig/chronyd 
+
+# 2.2.2 Ensure X11 Server components are not installed (Automated) <==== eliminar XWindowsServer escritorio borrado "solo server"
+
+# rpm -qa xorg-x11-server*
+# zypper remove xorg-x11-server*
+
+# 2.2.3 Ensure Avahi Server is not installed (Automated) 
+
+systemctl stop avahi-daemon.socket avahi-daemon.service 
+zypper remove avahi-autoipd avahi
+
+# 2.2.4 Ensure CUPS is not installed (Automated)
+
+zypper remove cups 
+
+# 2.2.5 Ensure DHCP Server is not installed (Automated)
+
+zypper remove dhcp
+
+# 2.2.6 Ensure LDAP server is not installed (Automated)
+
+rpm -q openldap2 
+
+zypper remove openldap2 
+
+# 2.2.7 Ensure nfs-utils is not installed or the nfs-server service is masked (Automated) 
+
+rpm -q nfs-utils nfs-kernel-server 
+
+zypper remove nfs-utils
+
+# 2.2.8 Ensure rpcbind is not installed or the rpcbind services are masked (Automated)
+
+Eliminar 
+zypper remove rpcbind
+ 
+configurar
+systemctl --now mask rpcbind 
+systemctl --now mask rpcbind.socket
+
+# 2.2.9 Ensure DNS Server is not installed (Automated)
+
+rpm -q bind
+zypper remove bind
+
+# 2.2.10 Ensure FTP Server is not installed (Automated)
+
+zypper remove vsftpd
+
+# 2.2.11 Ensure HTTP server is not installed (Automated)
+
+zypper remove dovecot
+
+# 2.2.13 Ensure Samba is not installed (Automated)
+
+zypper remove samba
+
+# 2.2.14 Ensure HTTP Proxy Server is not installed (Automated) 
+
+zypper remove squid 
+
+# 2.2.15 Ensure net-snmp is not installed (Automated)
+
+zypper remove net-snmp
+
+# 2.2.16 Ensure mail transfer agent is configured for local-only mode (Automated)
+ 
+ss -lntu | grep -E ':25\s' | grep -E -v '\s(127.0.0.1|\[?::1\]?):25\s' 
+
+# 2.2.17 Ensure rsync is not installed or the rsyncd service is masked (Automated) 
+
+rpm -q rsync 
+systemctl is-enabled rsyncd 
+systemctl --now mask rsyncd
+
+
+# 2.2.18 Ensure NIS server is not installed (Automated) 
+
+rpm -q ypserv 
+zypper remove ypserv 
+
+# 2.2.19 Ensure telnet-server is not installed (Automated)
+
+rpm -q telnet-server
+zypper remove telnet-server  
+
+# 2.3.1 Ensure NIS Client is not installed (Automated) 
+
+rpm -q ypbind 
+zypper remove ypbind 
+
+# 2.3.2 Ensure rsh client is not installed (Automated)
+
+rpm -q rsh 
+zypper remove rsh 
+
+# 2.3.3 Ensure talk client is not installed (Automated) 
+
+rpm -q talk 
+zypper remove talk 
+
+# 2.3.4 Ensure telnet client is not installed (Automated) 
+
+rpm -q telnet
+zypper remove telnet 
+
+# 2.3.5 Ensure LDAP client is not installed (Automated)
+
+rpm -q openldap2-clients
+zypper remove opendap2-clients 
+ 
+# 2.4 Ensure nonessential services are removed or masked (Manual) 
+
+lsof -i -P -n | grep -v "(ESTABLISHED)" 
+
+zypper remove <package_name> <=== eliminar 
+systemctl --now mask <service_name> <== editar 
+
+# 3 Network Configuration
+# 3.1 Disable unused network protocols and devices
+# 3.1.1 Disable IPv6 (Automated)
+
+systemctl restart sshd 
+
+grep "^\s*linux" /boot/grub2/grub.cfg | grep -v ipv6.disable=1
+
+sysctl net.ipv6.conf.all.disable_ipv6
+sysctl net.ipv6.conf.default.disable_ipv6
+grep -E '^\s*net\.ipv6\.conf\.(all|default)\.disable_ipv6\s*=\s*1\b(\s+#.*) $'/etc/sysctl.conf /etc/sysctl.d/*.conf | cut -d: -f2
+ 
+grub2-mkconfig –o /boot/grub2/grub.cfg <== opcion 1
+
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 <== opcion dos 
+sysctl -w net.ipv6.conf.default.disable_ipv6=1 
+sysctl -w net.ipv6.route.flush=1 
+
+# 3.1.2 Ensure wireless interfaces are disabled (Manual)
+iw list
+ip link show up
+ip link set
+
+# 3.2 Network Parameters (Host Only
+# 3.2.1 Ensure IP forwarding is disabled (Automated)
+
+sysctl net.ipv4.ip_forward 
+grep -E -s "^\s*net\.ipv4\.ip_forward\s*=\s*1" /etc/sysctl.conf /etc/sysctl.d/*.conf /usr/lib/sysctl.d/*.conf /run/sysctl.d/*.conf 
+
+# 3.2.2 Ensure packet redirect sending is disabled (Automated)
+
+sysctl net.ipv4.conf.all.send_redirects
+sysctl net.ipv4.conf.default.send_redirects
+grep "net\.ipv4\.conf\all\.send_redirects" /etc/sysctl.conf /etc/sysctl.d/*
+grep "net\.ipv4\.conf\.default\.send_redirects" /etc/sysctl.conf /etc/sysctl.d/*
+
+sysctl -w net.ipv4.conf.all.send_redirects=0
+sysctl -w net.ipv4.conf.defaut.send_redirects=0
+sysctl -w net.ipv4.conf.route.flush=1
+
+
+# 3.3 Network Parameters (Host and Router)
+# 3.3.1 Ensure source routed packets are not accepted (Automated)
+
+ 
+sysctl net.ipv4.conf.all.accept_source_route 
+sysctl net.ipv4.conf.default.accept_source_route  
+grep "net\.ipv4\.conf\.all\.accept_source_route" /etc/sysctl.conf /etc/sysctl.d/* 
+grep "net\.ipv4\.conf\.default\.accept_source_route" /etc/sysctl.conf /etc/sysctl.d/* 
+
+sysctl net.ipv6.conf.all.accept_source_route
+sysctl net.ipv6.conf.default.accept_source_route
+grep "net\.ipv6\.conf\.all\.accept_source_route" /etc/sysctl.conf /etc/sysctl.d/*
+grep "net\.ipv6\.conf\.default\.accept_source_route" /etc/sysctl.conf /etc/sysctl.d/*
+
+sysctl -w net.ipv4.conf.all.accept_source_route=0 
+sysctl -w net.ipv4.conf.default.accept_source_route=0 
+sysctl -w net.ipv4.route.flush=1 
+
+net.ipv6.conf.all.accept_source_route = 0 
+net.ipv6.conf.default.accept_source_route = 0
+
+sysctl -w net.ipv6.conf.all.accept_source_route=0 
+sysctl -w net.ipv6.conf.default.accept_source_route=0 
+sysctl -w net.ipv6.route.flush=1 
+
+# 3.3.2 Ensure ICMP redirects are not accepted (Automated)
+# 3.3.3 Ensure secure ICMP redirects are not accepted (Automated)
+
+sysctl net.ipv4.conf.all.accept_redirects 
+sysctl net.ipv4.conf.default.accept_redirects
+grep "net\.ipv4\.conf\.all\.accept_redirects" /etc/sysctl.conf /etc/sysctl.d/*
+grep "net\.ipv4\.conf\.default\.accept_redirects" /etc/sysctl.conf 
+/etc/sysctl.d/* 
+
+sysctl -w net.ipv4.conf.all.accept_redirects=0 
+sysctl -w net.ipv4.conf.default.accept_redirects=0 
+sysctl -w net.ipv4.route.flush=1 
+
+# 3.3.4 Ensure suspicious packets are logged (Automated)  
+
+sysctl net.ipv4.conf.all.log_martians 
+sysctl net.ipv4.conf.default.log_martians 
+grep "net\.ipv4\.conf\.all\.log_martians" /etc/sysctl.conf /etc/sysctl.d/*
+grep "net\.ipv4\.conf\.default\.log_martians" /etc/sysctl.conf /etc/sysctl.d/*
+
+sysctl -w net.ipv4.conf.all.log_martians=1 
+sysctl -w net.ipv4.conf.default.log_martians=1 
+sysctl -w net.ipv4.route.flush=1 
+
+# 3.3.5 Ensure broadcast ICMP requests are ignored (Automated) 
+sysctl net.ipv4.icmp_echo_ignore_broadcasts 
+
+grep "net\.ipv4\.icmp_echo_ignore_broadcasts" /etc/sysctl.conf 
+/etc/sysctl.d/*
+
+sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1 
+sysctl -w net.ipv4.route.flush=1 
+
+# 3.3.6 Ensure bogus ICMP responses are ignored (Automated)
+
+sysctl net.ipv4.icmp_ignore_bogus_error_responses
+grep "net.ipv4.icmp_ignore_bogus_error_responses" /etc/sysctl.conf /etc/sysctl.d/*
+
+
+sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1 
+sysctl -w net.ipv4.route.flush=1 
+
+# 3.3.7 Ensure Reverse Path Filtering is enabled (Automated)
+ 
+sysctl net.ipv4.conf.all.rp_filter
+sysctl net.ipv4.conf.default.rp_filter
+
+grep "net\.ipv4\.conf\.all\.rp_filter" /etc/sysctl.con /etc/sysctl.d/*
+grep "net\.ipv4\.conf\.default\.rp_filter" /etc/sysctl.con /etc/sysctl.d/*
+
+sysctl -w net.ipv4.conf.all.rp_filter=1
+sysctl -w net.ipv4.conf.default.rp_filter=1
+sysctl -w net.ipv4.route.flush=1
+
+# 3.3.8 Ensure TCP SYN Cookies is enabled (Automated)
+
+sysctl net.ipv4.tcp_syncookies
+grep "net\.ipv4\.tcp_syncookies" /etc/sysctl.conf /etc/sysctl.d/*
+
+sysctl -w net.ipv4.tcp_syncookies=1
+sysctl -w net.ipv4.route.flush=1
+
+# 3.3.9 Ensure IPv6 router advertisements are not accepted (Automated)
+
+sysctl net.ipv6.conf.all.accept_ra 
+sysctl net.ipv6.conf.default.accept_ra
+grep "net\.ipv6\.conf\.all\.accept_ra" /etc/sysctl.conf /etc/sysctl.d/*
+grep "net\.ipv6\.conf\.default\.accept_ra" /etc/sysctl.conf /etc/sysctl.d/*
+
+sysctl -w net.ipv6.conf.all.accept_ra=0
+sysctl -w net.ipv6.conf.default.accept_ra=0
+sysctl -w net.ipv6.route.flush=1
+
+# 3.4 Uncommon Network Protocols
+# 3.4.1 Ensure DCCP is disabled (Automated)
+
+modprobe -n -v dccp
+lsmod | grep dccp
+
+install dccp /bin/true
+
+# 3.4.2 Ensure SCTP is disabled (Automated)
+
+modprobe -n -v sctp 
+lsmod | grep sctp
+
+install sctp /bin/true 
+
+# 3.5 Firewall Configuration
+# 3.5.1 Configure firewalld
+# 3.5.1.1 Ensure FirewallD is installed (Automated) 
+
+rpm -q firewalld iptables
+
+zypper install firewalld iptables
+
+# 3.5.1.2 Ensure nftables is not installed or stopped and masked (Automated)
+rpm -q nftables 
+systemctl status nftables | grep "Active: " | grep -v "active (running) "
+
+systemctl is-enabled nftables
+systemctl --now mask nftables
+
+# 3.5.1.3 Ensure firewalld service is enabled and running (Automated) 
+
+systemctl is-enabled firewalld 
+firewall-cmd --state 
+
+systemctl unmask firewalld
+systemctl --now enable firewalld 
+
+# 3.5.1.4 Ensure default zone is set (Automated) 
+
+firewall-cmd --get-default-zone
+
+firewall-cmd --set-default-zone=public
+
+# 3.5.1.5 Ensure network interfaces are assigned to appropriate zone (Manual)
+
+nmcli -t connection show | awk -F: '{if($4){print $4}}' | while read INT; do firewall-cmd --get-active-zones | grep -B1 $INT; done
+
+firewall-cmd --zone=customezone --change-interface=eth0
+
+# 3.5.1.6 Ensure unnecessary services and ports are not accepted (Manual) 
+
+firewall-cmd --get-active-zones | awk '!/:/ {print $1}' | while read ZN; do firewall-cmd --list-all --zone=$ZN; done
+
+firewall-cmd --remove-service=<service>
+
+firewall-cmd --remove-service=cockpit
+
+firewall-cmd --remove-port=25/tcp
+
+firewall-cmd --runtime-to-permanent
+
+
+# 3.5.2.2 Ensure firewalld is not installed or stopped and masked (Automated)
+
+rpm -q firewalld 
+
+zypper remove firewalld
+systemctl --now mask firewalld
+
+# 3.5.2.3 Ensure iptables are flushed (Manual) 
+
+iptables -L
+ip6tables -L
+
+iptables -F 
+ip6tables -F 
+
+# 3.5.2.4 Ensure a table exists (Automated)
+ nft list tables 
+
+nft create table inet filter 
+nft create table inet <table name> 
+
+# 3.5.2.5 Ensure base chains exist (Automated) 
+
+nft list ruleset | grep 'hook input'
+nft list ruleset | grep 'hook forward' 
+nft list ruleset | grep 'hook output'
+
+nft create chain inet <table name> <base chain name> { type filter hook <(input|forward|output)> priority 0 \; }
+
+nft create chain inet filter input { type filter hook input priority 0 \; } 
+nft create chain inet filter forward { type filter hook forward priority 0  \; }
+nft create chain inet filter output { type filter hook output priority 0 \; }
+
+# 3.5.2.6 Ensure loopback traffic is configured (Automated)
+
+nft list ruleset | awk '/hook input/,/}/' | grep 'iif "lo" accept'
+nft list ruleset | awk '/hook input/,/}/' | grep 'ip saddr'
+
+nft list ruleset | awk '/hook input/,/}/' | grep 'ip6 saddr'
+
+nft add rule inet filter input iif lo accept
+nft create rule inet filter input ip saddr 127.0.0.0/8 counter drop
+nft add rule inet filter input ip6 saddr ::1 counter drop
+
+# 3.5.2.7 Ensure outbound and established connections are configured(Manual)
+
+nft list ruleset | awk '/hook input/,/}/' | grep -E 'ip protocol (tcp|udp|icmp) ct state'
+
+
+nft add rule inet filter input ip 
+protocol tcp ct state established accept
+nft add rule inet filter input ip protocol udp ct state established accept
+nft add rule inet filter input ip protocol icmp ct state established accept
+nft add rule inet filter output ip protocol tcp ct state new,related,established accept
+nft add rule inet filter output ip protocol udp ct state new,related,established accept
+nft add rule inet filter output ip protocol icmp ct state new,related,established accept
+
+
+# 3.5.2.8 Ensure default deny firewall policy (Automated)
+
+nft list ruleset | grep 'hook input'
+nft list ruleset | grep 'hook forward' 
+nft list ruleset | grep 'hook output'
+
+nft chain <table family> <table name> <chain name> { policy drop \; }
+nft chain inet filter input { policy drop \; }
+nft chain inet filter forward { policy drop \; }
+nft chain inet filter output { policy drop \; }
+
+# 3.5.2.9 Ensure nftables service is enabled (Automated)
+
+systemctl is-enabled nftables
+systemctl enable nftables
+
+systemctl enable nftables
+
+# 3.5.2.10 Ensure nftables rules are permanent (Automated)
+awk '/hook input/,/}/' $(awk '$1 ~ /^\s*include/ { gsub("\"","",$2);print $2 } /etc/sysconfig/nftables.conf)
+
+
+awk '/hook forward/,/}/' $(awk '$1 ~ /^\s*include/ { gsub("\"","",$2);print $2 } /etc/sysconfig/nftables.conf) 
+awk '/hook output/,/}/' $(awk '$1 ~ /^\s*include/ { gsub("\"","",$2);print $2 } /etc/sysconfig/nftables.conf)
+
+# 3.5.3 Configure iptable
+# 3.5.3.1 Configure software
+# 3.5.3.1.1 Ensure iptables package is installed (Automated) 
+
+rpm -q iptables
+iptables-<version> 
+zypper install iptables 
+
+# 3.5.3.1.2 Ensure nftables is not installed (Automated)
+
+rpm -q nftables 
+zypper remove nftables 
+
+# 3.5.3.1.3 Ensure firewalld is not installed or stopped and masked (Automated) 
+
+rpm -q firewalld 
+systemctl status firewalld | grep "Active: " | grep -v  "active (running) " 
+systemctl is-enabled firewalld 
+
+systemctl --now mask firewalld
+# zypper remove firewalld
+
+# 3.5.3.2.1 Ensure default deny firewall policy (Automated) 
+iptables -L
+iptables -P INPUT DROP 
+iptables -P OUTPUT DROP 
+iptables -P FORWARD DROP 
+
+# 3.5.3.2.2 Ensure loopback traffic is configured (Automated)
+iptables -L INPUT -v -n
+
+iptables -A INPUT -i lo -j ACCEPT 
+iptables -A OUTPUT -o lo -j ACCEPT 
+iptables -A INPUT -s 127.0.0.0/8 -j DROP
+iptables -L -v -n
+
+iptables -A OUTPUT -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -p udp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -p icmp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p udp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p icmp -m state --state NEW,ESTABLISHED -j ACCEPT
+
+# 3.5.3.2.4 Ensure firewall rules exist for all open ports (Automated)
+
+ss -4tuln
+iptables -L INPUT -v -n 
+iptables -A INPUT -p <protocol> --dport <port> -m state --state NEW -j ACCEPT
+
+# 3.5.3.3 Configure IPv6 ip6tables 
+# Flush ip6tables rules 
+ip6tables -F 
+# Ensure default deny firewall policy 
+ip6tables -P INPUT DROP 
+ip6tables -P OUTPUT DROP 
+ip6tables -P FORWARD DROP 
+# Ensure loopback traffic is configured 
+ip6tables -A INPUT -i lo -j ACCEPT 
+ip6tables -A OUTPUT -o lo -j ACCEPT 
+ip6tables -A INPUT -s ::1 -j DROP 
+# Ensure outbound and established connections are configured
+iptables -A OUTPUT -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -p udp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -p icmp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p udp -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p icmp -m state --state NEW,ESTABLISHED -j ACCEPT
+
+Open inbound ssh(tcp port 22) connections
+ip6tables -A INPUT -p tcp --dport 22 -m state --state NEW -j ACCEPT
+# 3.5.3.3.1 Ensure IPv6 default deny firewall policy (Automated)
+ip6tables -L 
+
+[ -n "$passing" ] && passing="" 
+[ -z "$(grep "^\s*linux" /boot/grub2/grub.cfg | grep -v ipv6.disabled=1)" ] && passing="true" 
+grep -Eq "^\s*net\.ipv6\.conf\.all\.disable_ipv6\s*=\s*1\b(\s+#.*)?$" /etc/sysctl.conf \ /etc/sysctl.d/*.conf && grep -Eq "^\s*net\.ipv6\.conf\.default\.disable_ipv6\s*=\s* \b(\s+#.*)?$" \ /etc/sysctl.conf /etc/sysctl.d/*.conf && sysctl net.ipv6.conf.all.disable_ipv6 | \ 
+grep -Eq "^\s*net\.ipv6\.conf\.all\.disable_ipv6\s*=\s*1\b(\s+#.*)?$" && \ sysctl net.ipv6.conf.default.disable_ipv6 | \ 
+grep -Eq "^\s*net\.ipv6\.conf\.default\.disable_ipv6\s*=\s*1\b(\s+#.*)?$" && passing="true" 
+if [ "$passing" = true ] ; then 
+ echo "IPv6 is disabled on the system" 
+else 
+ echo "IPv6 is enabled on the system" 
+fi
+
+ip6tables -P INPUT DROP 
+ip6tables -P OUTPUT DROP 
+ip6tables -P FORWARD DROP 
+
+# 3.5.3.3.2 Ensure IPv6 loopback traffic is configured (Automated)
+ip6tables -L INPUT -v -n 
+ip6tables -L OUTPUT -v -n
+
+ip6tables -A INPUT -i lo -j ACCEPT 
+ip6tables -A OUTPUT -o lo -j ACCEPT 
+ip6tables -A INPUT -s ::1 -j DROP 
+
+# 3.5.3.3.3 Ensure IPv6 outbound and established connections are configured (Manual)
+ip6tables -L -v -n 
+
+
+ip6tables -A OUTPUT -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT 
+ip6tables -A OUTPUT -p udp -m state --state NEW,ESTABLISHED -j ACCEPT 
+ip6tables -A OUTPUT -p icmp -m state --state NEW,ESTABLISHED -j ACCEPT 
+ip6tables -A INPUT -p tcp -m state --state ESTABLISHED -j ACCEPT 
+ip6tables -A INPUT -p udp -m state --state ESTABLISHED -j ACCEPT 
+ip6tables -A INPUT -p icmp -m state --state ESTABLISHED -j ACCEPT 
+
+
+# 3.5.3.3.4 Ensure IPv6 firewall rules exist for all open ports (Manual)
+ss -6tuln
+ip6tables -L INPUT -v -n
+ip6tables -A INPUT -p <protocol> --dport <port> -m state --state NEW -j ACCEPT
+
+# 4 Logging and Auditing 
+# 4.1 Configure System Accounting (auditd) 
+# 4.1.1 Ensure auditing is enabled
+
+rpm -q audit
+zypper install audit
+
+# 4.1.1.2 Ensure auditd service is enabled and running (Automated) 
+systemctl is-enabled auditd 
+systemctl status auditd | grep 'Active: active (running) '
+
+# 4.1.1.2 Ensure auditd service is enabled and running (Automated) 
+systemctl is-enabled auditd
+systemctl status auditd | grep 'Active: active (running) ' 
+systemctl --now enable auditd
+grep "^\s*linux" /boot/grub2/grub.cfg | grep -v "audit=1"
+grub2-mkconfig -o /boot/grub2/grub.cfg 
+
+# 4.1.2 Configure Data Retention
+# 4.1.2.1 Ensure audit log storage size is configured (Automated)
+
+grep max_log_file /etc/audit/auditd.conf
+
+# 4.1.2.2 Ensure audit logs are not automatically deleted (Automated)
+grep max_log_file_action /etc/audit/auditd.conf
+
+# 4.1.2.3 Ensure system is disabled when audit logs are full (Automated)
+  
+grep space_left_action /etc/audit/auditd.conf
+grep action_mail_acct /etc/audit/auditd.conf
+grep admin_space_left_action /etc/audit/auditd.conf
+
+# 4.1.2.4 Ensure audit_backlog_limit is sufficient (Automated) 
+grep "^\s*linux" /boot/grub2/grub.cfg | grep -v "audit_backlog_limit="
+grep "audit_backlog_limit=" /boot/grub2/grub.cfg 
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+# 4.1.3 Ensure events that modify date and time information are collected (Automated) 
+#On a 32 bit system run the following commands: 
+# grep time-change /etc/audit/rules.d/*.rules 
+# auditctl -l | grep time-change 
+# On a 64 bit system run the following commands: 
+grep time-change /etc/audit/rules.d/*.rules 
+auditctl -l | grep time-change 
+# 4.1.4 Ensure events that modify user/group information are collected (Automated)
+grep identity /etc/audit/rules.d/*.rules 
+auditctl -l | grep identity 
+
+# 4.1.5 Ensure events that modify the system's network environment are collected (Automated) 
+#32bits
+# grep system-locale /etc/audit/rules.d/*.rules
+# auditctl -l | grep system-locale
+# On a 64 bit system run the following commands: 
+grep system-locale /etc/audit/rules.d/*.rules 
+auditctl -l | grep system-locale
+
+grep system-locale /etc/audit/rules.d/*.rules
+auditctl -l | grep system-locale 
+
+# 4.1.6 Ensure events that modify the system's Mandatory Access Controls are collected (Automated) 
+grep MAC-policy /etc/audit/rules.d/*.rules
+
+auditctl -l | grep MAC-policy
+
+# 4.1.7 Ensure login and logout events are collected (Automated) 
+grep logins /etc/audit/rules.d/*.rules
+auditctl -l | grep logins
+# 4.1.8 Ensure session initiation information is collected (Automated) 
+grep -E '(session|logins)' /etc/audit/rules.d/*.rules
+auditctl -l | grep -E '(session|logins)'
+#4.1.9 Ensure discretionary access control permission modification events are collected (Automated) 
+
+grep perm_mod /etc/audit/rules.d/*.rules
+auditctl -l | grep perm_mod 
+
+auditctl -l | grep perm_mod 
+
+# 4.1.10 Ensure unsuccessful unauthorized file access attempts are collected (Automated) 
+ grep access /etc/audit/rules.d/*.rules 
+ auditctl -l | grep access 
+# 4.1.11 Ensure use of privileged commands is collected (Automated) 
+awk '/^\s*UID_MIN/{print $2}' /etc/login.defs
+
+find <partition> -xdev \( -perm -4000 -o -perm -2000 \) -type f | awk '{print "-a always,exit -F path=" $1 " -F perm=x -F auid>='"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' -F auid!=4294967295 -k privileged" }'
+
+find <partition> -xdev \( -perm -4000 -o -perm -2000 \) -type f | awk '{print "-a always,exit -F path=" $1 " -F perm=x -F auid>='"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' -F auid!=4294967295 -k privileged" }'
+
+# 4.1.12 Ensure successful file system mounts are collected (Automated)
+
+grep mounts /etc/audit/rules.d/*.rules
+auditctl -l | grep mounts
+
+# 4.1.13 Ensure file deletion events by users are collected (Automated) 
+grep delete /etc/audit/rules.d/*.rules
+auditctl -l | grep delete
+
+# 4.1.14 Ensure changes to system administration scope (sudoers) is collected (Automated) 
+grep scope /etc/audit/rules.d/*.rules 
+auditctl -l | grep scope 
+# 4.1.15 Ensure system administrator actions (sudolog) are collected (Automated) 
+ grep -E "^\s*-w\s+$(grep -r logfile /etc/sudoers* | sed -e 's/.*logfile=//;s/,? .*//')
+\s+-p\s+wa\s+-k\s+actions" /etc/audit/rules.d/*.rules
+# 4.1.16 Ensure kernel module loading and unloading is collected (Automated)
+grep modules /etc/audit/rules.d/*.rules
+auditctl -l | grep modules 
+
+# 4.1.17 Ensure the audit configuration is immutable (Automated) 
+
+grep "^\s*[^#]" /etc/audit/rules.d/*.rules | tail -1
+
+# 4.2 Configure Logging
+# 4.2.1 Configure rsyslog
+# 4.2.1.1 Ensure rsyslog is installed (Automated) 
+
+rpm -q rsyslog
+zypper install rsyslog 
+
+# 4.2.1.2 Ensure rsyslog Service is enabled and running (Automated)
+
+systemctl is-enabled rsyslog
+systemctl status rsyslog | grep 'active (running) '
+
+systemctl --now enable rsyslog 
+
+# 4.2.1.3 Ensure rsyslog default file permissions configured (Automated)
+grep ^\$FileCreateMode /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+
+# 4.2.1.4 Ensure logging is configured (Manual)
+systemctl restart rsyslog 
+
+#4.2.1.5 Ensure rsyslog is configured to send logs to a remote log host 
+(Automated) 
+
+grep "^*.*[^I][^I]*@" /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+
+systemctl restart rsyslog
+
+# 4.2.1.6 Ensure remote rsyslog messages are only accepted on designated log hosts. (Manual) 
+
+grep '$ModLoad imtcp' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+grep '$InputTCPServerRun' /etc/rsyslog.conf /etc/rsyslog.d/*.conf
+$ModLoad imtcp
+$InputTCPServerRun 514
+systemctl restart rsyslog
+
+# 4.2.2 Configure journald
+# 4.2.2.1 Ensure journald is configured to send logs to rsyslog (Automated) 
+grep -E ^\s*ForwardToSyslog /etc/systemd/journald.conf
+
+# 4.2.2.2 Ensure journald is configured to compress large log files (Automated) 
+grep -E ^\s*Compress /etc/systemd/journald.conf 
+# 4.2.2.3 Ensure journald is configured to write logfiles to persistent disk (Automated) 
+
+grep -E ^\s*Storage /etc/systemd/journald.conf
+find /var/log -type f -perm /g+wx,o+rwx  -exec ls -l {} \;
+
+# 5.1 Configure time-based job schedulers 
+# 5.1.1 Ensure cron daemon is enabled and running (Automated) 
+
+systemctl is-enabled cron
+systemctl status cron | grep 'Active: active (running) '
+systemctl --now enable cron
+
+# 5.1.2 Ensure permissions on /etc/crontab are configured (Automated) 
+stat /etc/crontab
+ 
+# 5.1.3 Ensure permissions on /etc/cron.hourly are configured (Automated)
+stat /etc/cron.hourly/
+#zypper remove cronie
+
+# 5.1.4 Ensure permissions on /etc/cron.daily are configured (Automated) 
+stat /etc/cron.daily/
+
+# 5.1.5 Ensure permissions on /etc/cron.weekly are configured (Automated) 
+stat /etc/cron.weekly
+
+# 5.1.6 Ensure permissions on /etc/cron.monthly are configured (Automated) 
+stat /etc/cron.monthly/
+zypper remove cronie
+
+# 5.1.7 Ensure permissions on /etc/cron.d are configured (Automated)
+# 5.1.8 Ensure cron is restricted to authorized users (Automated) 
+stat /etc/cron.d 
+stat /etc/cron.deny
+zypper remove cronie
+
+# 5.1.9 Ensure at is restricted to authorized users (Automated) 
+stat /etc/at.deny
+stat /etc/at.allow
+zypper remove at
+
+# 5.2 Configure SSH Server
+systemctl reload sshd
+
+# 5.2.1 Ensure permissions on /etc/ssh/sshd_config are configured (Automated) 
+stat /etc/ssh/sshd_config 
+
+chown root:root /etc/ssh/sshd_config 
+chmod og-rwx /etc/ssh/sshd_config
+# 5.2.2 Ensure permissions on SSH private host key files are configured (Automated)
+ find /etc/ssh -xdev -type f -name 'ssh_host_*_key' -exec stat {} \;
+
+find /etc/ssh -xdev -type f -name 'ssh_host_*_key' -exec chmod u-x,g-wx,o-rwx {} \; 
+find /etc/ssh -xdev -type f -name 'ssh_host_*_key' -exec chown root:ssh_keys {} \;
+
+# 5.2.3 Ensure permissions on SSH public host key files are configured (Automated)
+find /etc/ssh -xdev -type f -name 'ssh_host_*_key.pub' -exec stat {} \;
+
+find /etc/ssh -xdev -type f -name 'ssh_host_*_key.pub' -exec chmod u-x,go wx {} \; 
+find /etc/ssh -xdev -type f -name 'ssh_host_*_key.pub' -exec chown root:root {} \; 
+
+# 5.2.4 Ensure SSH access is limited (Automated)
+# 5.2.5 Ensure SSH LogLevel is appropriate (Automated) 
+# 5.2.6 Ensure SSH X11 forwarding is disabled (Automated)
+# 5.2.7 Ensure SSH MaxAuthTries is set to 4 or less (Automated)
+# 5.2.8 Ensure SSH IgnoreRhosts is enabled (Automated)
+# 5.2.9 Ensure SSH HostbasedAuthentication is disabled (Automated)
+# 5.2.10 Ensure SSH root login is disabled (Automated) 
+# 5.2.11 Ensure SSH PermitEmptyPasswords is disabled (Automated) 
+# 5.2.12 Ensure SSH PermitUserEnvironment is disabled (Automated)
+sshd -T | grep -E '^\s*(allow|deny)(users|groups)\s+\S+' 
+sshd -T | grep -i x11forwarding
+sshd -T | grep maxauthtries
+sshd -T | grep ignorerhosts
+sshd -T | grep hostbasedauthentication 
+sshd -T | grep loglevel 
+sshd -T | grep permitrootlogin 
+sshd -T | grep permitemptypasswords 
+sshd -T | grep permituserenvironment
+
+ 
+# 5.2.13 Ensure only strong Ciphers are used (Automated) 
+# 5.2.14 Ensure only strong MAC algorithms are used (Automated)
+# 5.2.15 Ensure only strong Key Exchange algorithms are used (Automated) 
+# 5.2.16 Ensure SSH Idle Timeout Interval is configured (Automated)
+sshd -T | grep ciphers
+sshd -T | grep -i "MACs" 
+sshd -T | grep kexalgorithms 
+sshd -T | grep clientaliveinterval
+sshd -T | grep clientalivecountmax 
+
+# 5.2.17 Ensure SSH LoginGraceTime is set to one minute or less (Automated) 
+# 5.2.18 Ensure SSH warning banner is configured (Automated)
+# 5.2.19 Ensure SSH PAM is enabled (Automated) 
+# 5.2.20 Ensure SSH AllowTcpForwarding is disabled (Automated) 
+# 5.2.21 Ensure SSH MaxStartups is configured (Automated) 
+# 5.2.22 Ensure SSH MaxSessions is limited (Automated) 
+
+sshd -T | grep logingracetime 
+sshd -T | grep banner
+sshd -T | grep -i usepam 
+sshd -T | grep -i allowtcpforwarding 
+sshd -T | grep -i maxstartups
+sshd -T | grep -i maxsessions
+# 5.3 Configure PAM
+# 5.3.1 Ensure password creation requirements are configured (Automated) 
+# 5.3.2 Ensure lockout for failed password attempts is configured (Automated)
+
+# grep -P '^\s*password\s+(requisite|required)\s+pam_cracklib.so\s+([^#]+\s+)*minlen=(1 [4-9]|[1-9][0-9]+)\b' /etc/pam.d/common-password 
+
+# pam-config -a --cracklib-minlen=14 --cracklib-retry=3 --cracklib-lcredit=-1 --cracklib-ucredit=-1 --cracklib-dcredit=-1 --cracklib-ocredit=-1 --cracklib
+# grep -E '^\s*auth\s+\S+\s+pam_(tally2|unix)\.so' /etc/pam.d/login
+
+# 5.4 User Accounts and Environment 
+# 5.4.1 Set Shadow Password Suite Parameters
+# 5.4.1.1 Ensure password hashing algorithm is SHA-512 (Automated) 
+# 5.4.1.2 Ensure password expiration is 365 days or less (Automated)
+# 5.4.1.3 Ensure minimum days between password changes is configured (Automated)
+# 5.4.1.4 Ensure password expiration warning days is 7 or more (Automated) 
+# 5.4.1.5 Ensure inactive password lock is 30 days or less (Automated) 
+ 
+grep -Ei '^\s*^\s*ENCRYPT_METHOD\s+SHA512' /etc/login.defs 
+
+awk -F: '( $3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' && $1 != "nfsnobody" ) { print $1 }' /etc/passwd | xargs -n 1 chage -d 0
+
+grep ^\s*PASS_MAX_DAYS /etc/login.defs
+
+grep -E '^[^:]+:[^!*]' /etc/shadow | cut -d: -f1,5
+
+grep ^\s*PASS_MIN_DAYS /etc/login.defs 
+
+grep -E ^[^:]+:[^\!*] /etc/shadow | cut -d: -f1,4 
+
+grep ^\s*PASS_WARN_AGE /etc/login.defs
+
+grep -E ^[^:]+:[^\!*] /etc/shadow | cut -d: -f1,6
+
+useradd -D | grep INACTIVE
+
+grep -E ^[^:]+:[^\!*] /etc/shadow | cut -d: -f1,7
+useradd -D -f 30
+
+for usr in $(cut -d: -f1 /etc/shadow); do [[ $(chage --list $usr | grep '^Last password change' | cut -d: -f2) > $(date) ]] && echo "$usr :$(chage list $usr | grep '^Last password change' | cut -d: -f2)"; done
+
+# 5.4.2 Ensure system accounts are secured (Automated) 
+
+awk -F: '($1!="root" && $1!="sync" && $1!="shutdown" && $1!="halt" && $1!~/^\+/ && $3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' && $7!="'"$(which nologin)"'" && $7!="/bin/false") {print}' /etc/passwd 
+ 
+awk -F: '($1!="root" && $1!~/^\+/ && $3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"') {print $1}' /etc/passwd | xargs -I '{}' passwd -S '{}' | 
+awk '($2!="L" && $2!="LK") {print $1}'
+
+
+awk -F: '($1!="root" && $1!="sync" && $1!="shutdown" && $1!="halt" && $1!~/^\+/ && $3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"' && $7!="'"$(which nologin)"'" && $7!="/bin/false" && $7!="/usr/bin/false") {print $1}' /etc/passwd | while read -r user; do usermod -s "$(which nologin)" "$user"; done
+
+awk -F: '($1!="root" && $1!~/^\+/ && $3<'"$(awk '/^\s*UID_MIN/{print $2}' /etc/login.defs)"') {print $1}' /etc/passwd | xargs -I '{}' passwd -S '{}' | awk '($2!="L" && $2!="LK") {print $1}' | while read -r user; do usermod -L "$user"; done
+
+# 5.4.3 Ensure default group for the root account is GID 0 (Automated)
+
+grep "^root:" /etc/passwd | cut -f4 -d:
+usermod -g 0 root 
+# 5.4.4 Ensure default user shell timeout is configured (Automated)
+
+ for f in /etc/profile.d/*.sh ; do grep -Eq '(^|^[^#]*;)\s*(readonly|export(\s+[^$#;]+\s*)*)?\s*TMOUT=(900|[1-8][0-9][0-9]|[1-9][0-9]|[1-9])\b' $f && grep -Eq '(^|^[^#]*;)\s*readonly\s+TMOUT\b' $f && grep -Eq '(^|^[^#]*;)\s*export\s+([^$#;] \s+)*TMOUT\b' $f && echo "TMOUT correctly configured in file: $f"; done
+
+
+ grep -PR '^\s*([^$#;]+\s+)*TMOUT=(9[0-9][1-9]|0+|[1-9]\d{3,})\b\s*(\S+\s*)*(\s+#.*)?$' /etc/profile* /etc/bashrc.bashrc*
+
+
+# 5.4.5 Ensure default user umask is configured (Automated) 
+
+grep -RPi '(^|^[^#]*)\s*umask\s+([0-7][0-7][01][0-7]\b|[0-7][0-7][0-7][0-6]\b|[0-7][01][0-7]\b|[0-7][0-7][0-6]\b|(u=[rwx]{0,3},)?(g=[rwx]{0,3},)?o=[rwx]+\b|(u=[rwx]{1,3},)?g=[^rx]{1,3}(,o=[rwx]{0,3})?\b)' /etc/login.defs /etc/default/login /etc/profile* /etc/bash.bashrc*
+
+ grep -REi '^\s*UMASK\s+\s*(0[0-7][2-7]7|[0-7][2-7]7|u=(r?|w?|x?)(r?|w?|x?)(r?|w?|x?),g=(r?x?|x?r?),o=)\b' /etc/login.defs /etc/default/login /etc/profile* /etc/bash.bashrc* 
+
+
+# 5.5 Ensure root login is restricted to system 
+console (Manual)
+ 
+cat /etc/securetty
+# 5.6 Ensure access to the su command is restricted (Automated)
+grep -E '^\s*auth\s+required\s+pam_wheel\.so\s+(\S+\s+)*use_uid\s+(\S+\s+)*group=\S+\       s*(\S+\s*)*(\s+#.*)?$' /etc/pam.d/su
+
+grep <group_name> /etc/group
+
+groupadd sugroup
+
+
+# 6 System Maintenance
+# 6.1 System File Permissions
+# 6.1.1 Audit system file permissions (Manual) 
+rpm -qf /etc/ssh/sshd_config 
+rpm -V openssh-7.9p1-6.14.1.x86_64 
+rpm -V $(rpm -qf /etc/ssh/sshd_config)
+rpm -Va --nomtime --nosize --nomd5 --nolinkto > <filename> | grep -vw c
+
+
+#Remediation: 
+#Investigate the results to ensure any discrepancies found are understood and support 
+#proper secure operation of the system. 
+
+# 6.1.2 Ensure permissions on /etc/passwd are configured (Automated)
+stat /etc/passwd
+chown root:root /etc/passwd 
+chmod u-x,g-wx,o-wx /etc/passwd
+
+# 6.1.3 Ensure permissions on /etc/shadow are configured (Automated) 
+stat /etc/shadow
+chown root:root /etc/shadow
+chmod u-x,g-wx,o-rwx /etc/shadow
+
+# 6.1.4 Ensure permissions on /etc/group are configured (Automated)
+stat /etc/group 
+chown root:root /etc/group 
+chmod u-x,g-wx,o-wx /etc/group 
+
+# 6.1.5 Ensure permissions on /etc/passwd- are configured (Automated) 
+stat /etc/passwd-
+
+chown root:root /etc/passwd- 
+chmod u-x,go-wx /etc/passwd-
+
+# 6.1.6 Ensure permissions on /etc/shadow- are configured (Automated) 
+
+stat /etc/shadow-
+chown root:shadow /etc/shadow- 
+chmod u-x,g-wx,o-rwx /etc/shadow-
+
+# 6.1.7 Ensure permissions on /etc/group- are configured (Automated) 
+
+stat /etc/group-
+chown root:root /etc/group- 
+chmod u-x,go-wx /etc/group- 
+
+# 6.1.8 Ensure no world writable files exist (Automated) 
+
+df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type f -perm -0002 
+
+find <partition> -xdev -type f -perm -0002
+
+# Remediation: 
+#Removing write access for the "other" category ( chmod o-w <filename> ) is advisable,but 
+#always consult relevant vendor documentation to avoid breaking any application #dependencies on a given file. 
+
+# 6.1.9 Ensure no unowned files or directories exist (Automated)
+
+df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nouse
+
+find <partition> -xdev -nouser
+
+# 6.1.10 Ensure no ungrouped files or directories exist (Automated) 
+
+df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -nogroup
+
+# 6.1.11 Audit SUID executables (Manual)
+
+df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type f -perm -4000 
+
+find <partition> -xdev -type f -perm -4000 
+
+# 6.1.12 Audit SGID executables (Manual)
+
+df --local -P | awk '{if (NR!=1) print $6}' | xargs -I '{}' find '{}' -xdev -type f -perm -2000
+
+# 6.2 User and Group Settings
+# 6.2.1 Ensure accounts in /etc/passwd use shadowed passwords (Automated) 
+
+awk -F: '($2 != "x" ) { print $1 " is not set to shadowed passwords "}' /etc/passwd 
+
+sed -e 's/^\([a-zA-Z0-9_]*\):[^:]*:/\1:x:/' -i /etc/passwd
+# 6.2.2 Ensure /etc/shadow password fields are not empty (Automated) 
+
+awk -F: '($2 == "" ) { print $1 " does not have a password "}' /etc/shadow 
+
+# 6.2.3 Ensure root is the only UID 0 account (Automated)
+
+awk -F: '($3 == 0) { print $1 }' /etc/passwd
+
+
+# Remediation:
+# Remove any users other than root with UID 0 or assign them a new UID if appropriate.
+
+# 6.2.4 Ensure root PATH Integrity (Automated) 
+
+if echo "$PATH" | grep -q "::" ; then  
+   echo "Empty Directory in PATH (::)" 
+fi   
+if echo "$PATH" | grep -q ":$" ; then  
+        echo "Trailing : in PATH"  
+fi   
+for x in $(echo "$PATH" | tr ":" " ") ; do 
+  if [ -d "$x" ] ; then 
+    ls -ldH "$x" | awk ' 
+$9 == "." {print "PATH contains current working directory (.)"} 
+$3 != "root" {print $9, "is not owned by root"} 
+substr($1,6,1) != "-" {print $9, "is group writable"} 
+substr($1,9,1) != "-" {print $9, "is world writable"}' 
+  else 
+    echo "$x is not a directory" 
+  fi 
+done
+
+# Remediation: 
+# Correct or justify any items discovered in the Audit step.
+
+# 6.2.5 Ensure all users' home directories exist (Automated)
+
+grep -E -v '^(halt|sync|shutdown)' /etc/passwd | awk -F: '($7 != "'"$(which nologin)"'" && $7 != "/bin/false") { print $1 " " $6 }' | while read -r user dir; do
+if [ ! -d "$dir" ]; then
+	echo "The home directory ($dir) of user $user does not exist."
+fi
+done
+
+# Remediation: 
+# If any users' home directories do not exist, create them and make sure the respective user 
+# owns the directory. Users without an assigned home directory should be removed or 
+# assigned a home directory as appropriate.
+
+# 6.2.6 Ensure users' home directories permissions are 750 or more restrictive (Automated)
+grep -E -v '^(halt|sync|shutdown)' /etc/passwd | awk -F: '($7 != "'"$(which nologin)"'" && $7 != "/bin/false") { print $1 " " $6 }' | while read user 
+dir; do 
+  if [ ! -d "$dir" ]; then 
+    echo "The home directory ($dir) of user $user does not exist." 
+  else 
+    dirperm=$(ls -ld $dir | cut -f1 -d" ") 
+    if [ $(echo $dirperm | cut -c6) != "-" ]; then 
+      echo "Group Write permission set on the home directory ($dir) of user 
+$user" 
+    fi 
+    if [ $(echo $dirperm | cut -c8) != "-" ]; then 
+      echo "Other Read permission set on the home directory ($dir) of user 
+$user" 
+    fi 
+    if [ $(echo $dirperm | cut -c9) != "-" ]; then 
+      echo "Other Write permission set on the home directory ($dir) of user 
+$user" 
+    fi 
+    if [ $(echo $dirperm | cut -c10) != "-" ]; then 
+      echo "Other Execute permission set on the home directory ($dir) of user 
+$user" 
+    fi 
+  fi 
+done 
+
+
+# Remediation:
+# Making global modifications to user home directories without alerting the user community 
+# can result in unexpected outages and unhappy users. Therefore, it is recommended that a 
+# monitoring policy be establishe
+# to report user file permissions and determine the action 
+# to be taken in accordance with site policy.
+
+# 6.2.7 Ensure users own their home directories (Automated) 
+
+grep -E -v '^(halt|sync|shutdown)' /etc/passwd | awk -F: '($7 != "'"$(which nologin)"'" &&  $7 != "/bin/false") { print $1 " " $6 }' | while read user dir; do
+ if [ ! -d "$dir" ]; then
+ 	echo "The home directory ($dir) of user $user does not exist."
+ else
+	owner=$(stat -L -c "%U" "$dir")
+ if [ "$owner" != "$user" ]; then
+ 	echo "The home directory ($dir) of user $user is owned by $owner."
+ fi
+ fi
+done
+
+# 6.2.8 Ensure users' dot files are not group or world writable 
+(Automated)
+grep -E -v '^(halt|sync|shutdown)' /etc/passwd | awk -F: '($7 != "'"$(which 
+nologin)"'" && $7 != "/bin/false") { print $1 " " $6 }' | while read user dir; do
+ if [ ! -d "$dir" ]; then
+ 	echo "The home directory ($dir) of user $user does not exist."
+ else
+ owner=$(stat -L -c "%U" "$dir")
+ if [ "$owner" != "$user" ]; then
+ 	echo "The home directory ($dir) of user $user is owned by $owner."
+ fi
+fi
+done
+# Remediation
+# Change the ownership of any home directories that are not owned by the de
+# the correct user.
+
+# 6.2.8 Ensure users' dot files are not group or world writable (Automated)
+
+grep -E -v '^(halt|sync|shutdown)' /etc/passwd | awk -F: '($7 != "'"$(which nologin)"'" && $7 != "/bin/false") { print $1 " " $6 }' | while read user dir; do
+ if [ ! -d "$dir" ]; then
+ echo "The home directory ($dir) of user $user does not exist."
+ else
+ for file in $dir/.[A-Za-z0-9]*; do
+if [ ! -h "$file" -a -f "$file" ]; then
+fileperm=$(ls-ld $file | cut -f1 -d" ")
+ if [ $(echo $fileperm | cut-c6)  != "" ]; then
+ echo "Group Write permission set on file $file"
+ if [ $(echo $fileperm | cut-c9)  != "-" ]; then
+ echo "Other Write permission set on file $file"
+fi
+fi
+done
+fi
+done
+
+# Remediation:
+# Making global modifications to users' files without alerting the user community 
+# can result in unexpected outages and unhappy users. Therefore, it is recommended that a #monitoring policy be established to report user dot file permissions and determine the action to be 
+#taken in accordance with site policy
+# 6.2.9 Ensure no users have .forward files (Automated)
+
+awk -F: '($1 !~ /^(root|halt|sync|shutdown)$/ && $7 != "'"$(which nologin)"'" && $7 != "/bin/false" && $7 != "/usr/bin/false") { print $1 " " $6 }' /etc/passwd | while read user dir; do 
+  if [ ! -d "$dir" ] ; then 
+    echo "The home directory ($dir) of user $user does not exist." 
+  else 
+    if [ ! -h "$dir/.forward" -a -f "$dir/.forward" ] ; then 
+      echo ".forward file $dir/.forward exists" 
+    fi 
+  fi 
+done 
+# 6.2.10 Ensure no users have .netrc files (Automated)
+
+awk -F: '($1 !~ /^(root|halt|sync|shutdown)$/ && $7 != "'"$(which nologin)"'" 
+&& $7 != "/bin/false" && $7 != "/usr/bin/false") { print $1 " " $6 }' 
+/etc/passwd | while read user dir; do 
+  if [ ! -d "$dir" ]; then 
+    echo "The home directory ($dir) of user $user does not exist." 
+  else 
+    if [ ! -h "$dir/.netrc" -a -f "$dir/.netrc" ]; then 
+      echo ".netrc file $dir/.netrc exists" 
+    fi 
+  fi 
+done 
+
+#6.2.11 Ensure users' .netrc Files are not group or world accessible (Automated)
+awk -F: '($1 !~ /^(root|halt|sync|shutdown)$/ && $7 != "'"$(which nologin)"'" 
+&& $7 != "/bin/false" && $7 != "/usr/bin/false") { print $1 " " $6 }' 
+/etc/passwd | while read user dir; do 
+  if [ ! -d "$dir" ]; then 
+    echo "The home directory ($dir) of user $user does not exist." 
+  else 
+    for file in $dir/.netrc; do 
+      if [ ! -h "$file" -a -f "$file" ]; then 
+        fileperm=$(ls -ld $file | cut -f1 -d" ") 
+        if [ $(echo $fileperm | cut -c5)  != "-" ]; then 
+          echo "Group Read set on $file" 
+        fi 
+        if [ $(echo $fileperm | cut -c6)  != "-" ]; then 
+          echo "Group Write set on $file" 
+        fi 
+        if [ $(echo $fileperm | cut -c7)  != "-" ]; then 
+          echo "Group Execute set on $file" 
+        fi 
+        if [ $(echo $fileperm | cut -c8)  != "-" ]; then 
+          echo "Other Read set on $file" 
+        fi 
+        if [ $(echo $fileperm | cut -c9)  != "-" ]; then 
+          echo "Other Write set on $file" 
+        fi 
+        if [ $(echo $fileperm | cut -c10)  != "-" ]; then 
+          echo "Other Execute set on $file" 
+        fi 
+      fi 
+    done 
+  fi 
+done 
+
+# Remediation: 
+# Making global modifications to users' files without alerting the user community can result 
+# in unexpected outages and unhappy users. Therefore, it is recommended that a monitoring 
+# policy be established to report user .netrc file permissions and determine the action to be 
+# taken in accordance with site policy. 
+
+# 6.2.12 Ensure no users have .rhosts files (Automated) 
+
+awk -F: '($1 !~ /^(root|halt|sync|shutdown)$/ && $7 != "'"$(which nologin)"'" 
+&& $7 != "/bin/false" && $7 != "/usr/bin/false") { print $1 " " $6 }' 
+/etc/passwd | while read user dir; do 
+  if [ ! -d "$dir" ]; then 
+    echo "The home directory ($dir) of user $user does not exist." 
+  else 
+    for file in $dir/.rhosts; do 
+      if [ ! -h "$file" -a -e "$file" ]; then 
+        echo ".rhosts file in $dir" 
+      fi 
+    done 
+  fi 
+done 
+
+# Remediation: 
+# Making global modifications to users' files without alerting the user community can result 
+# in unexpected outages and unhappy users. Therefore, it is recommended that a monitoring 
+# policy be established to report user .rhosts files and determine the action to be taken in 
+# accordance with site policy. 
+
+# 6.2.13 Ensure all groups in /etc/passwd exist in /etc/group (Automated) 
+ 
+for i in $(cut -s -d: -f4 /etc/passwd | sort -u ); do 
+  grep -q -P "^.*?:[^:]*:$i:" /etc/group 
+  if [ $? -ne 0 ]; then 
+    echo "Group $i is referenced by /etc/passwd but does not exist in 
+/etc/group" 
+  fi 
+done 
+ 
+# Remediation: 
+# Analyze the output of the Audit step above and perform the appropriate action to correct 
+# any discrepancies found.  
+
+# 6.2.14 Ensure no duplicate UIDs exist (Automated) 
+
+cut -f3 -d":" /etc/passwd | sort -n | uniq -c | while read x ; do 
+  [ -z "$x" ] && break 
+  set - $x 
+  if [ $1 -gt 1 ]; then 
+    users=$(awk -F: '($3 == n) { print $1 }' n=$2 /etc/passwd | xargs) 
+    echo "Duplicate UID ($2): $users" 
+  fi 
+done
+
+# Remediation: 
+# Based on the results of the audit script, establish unique UIDs and review all files owned by 
+# the shared UIDs to determine which UID they are supposed to belong to.
+
+# 6.2.15 Ensure no duplicate GIDs exist (Automated) 
+cut -d: -f3 /etc/group | sort | uniq -d | while read x ; do 
+    echo "Duplicate GID ($x) in /etc/group" 
+done 
+
+# Remediation: 
+# Based on the results of the audit script, establish unique GIDs and review all files owned by 
+# the shared GID to determine which group they are supposed to belong to. 
+
+# 6.2.16 Ensure no duplicate user names exist (Automated) 
+cut -d: -f1 /etc/passwd | sort | uniq -d | while read x 
+do echo "Duplicate login name ${x} in /etc/passwd" 
+done 
+
+# Remediation: 
+# Based on the results of the audit script, establish unique user names for the users. File 
+# ownerships will automatically reflect the change as long as the users have unique UIDs. 
+
+# 6.2.17 Ensure no duplicate group names exist (Automated) 
+ 
+cut -d: -f1 /etc/group | sort | uniq -d | while read x 
+do echo "Duplicate group name ${x} in /etc/group" 
+done
+
+# Remediation: 
+# Based on the results of the audit script, establish unique names for the user groups. File 
+# group ownerships will automatically reflect the change as long as the groups have unique 
+# GIDs. 
+
+# 6.2.18 Ensure shadow group is empty (Automated)
+
+grep ^shadow:[^:]*:[^:]*:[^:]+ /etc/group 
+awk -F: '($4 == "<shadow-gid>") { print }' /etc/passwd 
+
+# Remediation: 
+# Remove all users from the shadow group, and change the primary group of any users with 
+# shadow as their primary group. 
+
+echo "final del scrip"
+
